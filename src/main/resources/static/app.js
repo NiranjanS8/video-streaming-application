@@ -278,30 +278,28 @@
                 <div class="card__thumb">
                     <div class="card__play">
                         <div class="card__play-icon">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polygon points="4,2 4,12 12,7" fill="currentColor"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><polygon points="4,2 4,12 12,7" fill="currentColor"/></svg>
                         </div>
                     </div>
                 </div>
+                <button class="card__delete" aria-label="Delete video" title="Delete">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
                 <div class="card__body">
                     <p class="card__title">${escHtml(v.title || 'Untitled')}</p>
                     <p class="card__desc">${escHtml(v.description || '')}</p>
                     <div class="card__footer">
                         ${v.contentType ? '<span class="card__type">' + escHtml(v.contentType.split('/')[1] || v.contentType).toUpperCase() + '</span>' : ''}
-                        <button class="card__delete" data-id="${v.videoId}" aria-label="Delete video" title="Delete">
-                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </button>
                     </div>
                 </div>
             `;
-            // Play on card click (but not on delete button)
             card.addEventListener('click', (e) => {
                 if (e.target.closest('.card__delete')) return;
                 openPlayer(v);
             });
-            // Delete button
             card.querySelector('.card__delete').addEventListener('click', (e) => {
                 e.stopPropagation();
-                deleteVideo(v.videoId, v.title || 'Untitled');
+                showDeleteModal(v.videoId, v.title || 'Untitled');
             });
             grid.appendChild(card);
         });
@@ -313,10 +311,39 @@
         return d.innerHTML;
     }
 
-    let currentVideoId = null; // track what's playing
+    let currentVideoId = null;
 
-    function deleteVideo(videoId, title) {
-        if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+    /* ========================================
+       DELETE MODAL
+       ======================================== */
+
+    const deleteModal = document.getElementById('delete-modal');
+    const deleteModalName = document.getElementById('delete-modal-name');
+    const deleteCancelBtn = document.getElementById('delete-cancel');
+    const deleteConfirmBtn = document.getElementById('delete-confirm');
+    let pendingDeleteId = null;
+
+    function showDeleteModal(videoId, title) {
+        pendingDeleteId = videoId;
+        deleteModalName.textContent = '"' + title + '"';
+        deleteModal.hidden = false;
+    }
+
+    function hideDeleteModal() {
+        deleteModal.hidden = true;
+        pendingDeleteId = null;
+    }
+
+    deleteCancelBtn.addEventListener('click', hideDeleteModal);
+
+    deleteModal.addEventListener('click', (e) => {
+        if (e.target === deleteModal) hideDeleteModal();
+    });
+
+    deleteConfirmBtn.addEventListener('click', () => {
+        if (!pendingDeleteId) return;
+        const videoId = pendingDeleteId;
+        hideDeleteModal();
 
         fetch(API_BASE + '/' + videoId, { method: 'DELETE' })
             .then(res => {
@@ -325,12 +352,11 @@
             })
             .then(data => {
                 toast(data.message || 'Video deleted', 'success');
-                // Close player if this video was playing
                 if (currentVideoId === videoId) closePlayer();
                 loadLibrary();
             })
             .catch(() => toast('Failed to delete video', 'error'));
-    }
+    });
 
     /* ========================================
        INLINE PLAYER (Video.js)

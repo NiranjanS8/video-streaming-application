@@ -8,7 +8,8 @@
     <title>Aperture — Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700&display=swap"
+        rel="stylesheet">
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -18,10 +19,10 @@
     <!-- Subtle ambient light -->
     <div class="ambient"></div>
 
-    <!-- Top bar — full width -->
+    <!-- Top bar -->
     <nav class="topbar">
         <div class="topbar__brand">
-            <svg class="topbar__logo" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <svg class="topbar__logo" width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.4" />
                 <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.4" />
                 <line x1="12" y1="2" x2="12" y2="8" stroke="currentColor" stroke-width="1.4" />
@@ -38,18 +39,20 @@
 
         <!-- ====== LEFT: Upload Panel ====== -->
         <section class="panel" id="panel">
-            <h2 class="panel__heading">Upload</h2>
+            <h2 class="section-title">Upload Video</h2>
 
             <!-- Drop zone -->
             <div class="drop" id="dropzone">
                 <div class="drop__inner">
-                    <svg class="drop__icon" width="36" height="36" viewBox="0 0 40 40" fill="none">
-                        <rect x="4" y="8" width="32" height="24" rx="4" stroke="currentColor" stroke-width="1.3" />
-                        <polygon points="17,15 17,25 26,20" fill="currentColor" opacity="0.35" />
-                        <path d="M20 3V8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
-                        <path d="M17 5L20 2L23 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
-                            stroke-linejoin="round" />
-                    </svg>
+                    <div class="drop__icon-wrap">
+                        <svg class="drop__icon" width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <rect x="4" y="10" width="40" height="28" rx="5" stroke="currentColor" stroke-width="1.5" />
+                            <polygon points="20,17 20,31 32,24" fill="currentColor" opacity="0.3" />
+                            <path d="M24 4V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            <path d="M20 7L24 3L28 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </div>
                     <p class="drop__title">Drop your video here</p>
                     <p class="drop__sub">or <button type="button" class="drop__browse" id="browse-btn">browse
                             files</button></p>
@@ -83,7 +86,7 @@
             <!-- Completion checkmark -->
             <div class="done" id="done-state" hidden>
                 <div class="done__check">
-                    <svg class="done__icon" width="22" height="22" viewBox="0 0 28 28" fill="none">
+                    <svg class="done__icon" width="28" height="28" viewBox="0 0 28 28" fill="none">
                         <circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.2" opacity="0.25" />
                         <path class="done__tick" d="M9 14.5L12.5 18L19 11" stroke="currentColor" stroke-width="1.6"
                             stroke-linecap="round" stroke-linejoin="round" />
@@ -98,7 +101,7 @@
                 <input class="input" id="title" type="text" placeholder="e.g. Behind the Scenes — Ep. 04" required>
 
                 <label class="label" for="description">Description</label>
-                <textarea class="input input--area" id="description" rows="2"
+                <textarea class="input input--area" id="description" rows="3"
                     placeholder="Add context, tags, or notes..."></textarea>
 
                 <!-- Progress -->
@@ -109,11 +112,11 @@
                     <span class="prog__pct" id="prog-pct">0 %</span>
                 </div>
 
-                <!-- CTA with label morphing -->
+                <!-- CTA -->
                 <button class="cta" id="cta" type="submit">
                     <span class="cta__label" id="cta-label">
                         <span class="cta__text" id="cta-text">Upload</span>
-                        <svg class="cta__arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <svg class="cta__arrow" width="18" height="18" viewBox="0 0 16 16" fill="none">
                             <path d="M8 12V4M5 6L8 3L11 6" stroke="currentColor" stroke-width="1.5"
                                 stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
@@ -125,9 +128,9 @@
         <!-- ====== RIGHT: Library + Player ====== -->
         <section class="library" id="library">
             <div class="library__header">
-                <h2 class="panel__heading">Library</h2>
+                <h2 class="section-title">Library</h2>
                 <button class="lib-refresh" id="refresh-btn" type="button" aria-label="Refresh library">
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M13.65 2.35A8 8 0 1 0 16 8h-2a6 6 0 1 1-1.76-4.24L10 6h6V0l-2.35 2.35Z"
                             fill="currentColor" />
                     </svg>
@@ -158,9 +161,9 @@
 
             <!-- Empty state -->
             <div class="empty" id="empty-state" hidden>
-                <svg class="empty__icon" width="32" height="32" viewBox="0 0 40 40" fill="none">
-                    <rect x="4" y="8" width="32" height="24" rx="4" stroke="currentColor" stroke-width="1.3" />
-                    <polygon points="17,15 17,25 26,20" fill="currentColor" opacity="0.25" />
+                <svg class="empty__icon" width="48" height="48" viewBox="0 0 48 48" fill="none">
+                    <rect x="4" y="10" width="40" height="28" rx="5" stroke="currentColor" stroke-width="1.5" />
+                    <polygon points="20,17 20,31 32,24" fill="currentColor" opacity="0.2" />
                 </svg>
                 <p class="empty__text">No videos yet</p>
                 <p class="empty__hint">Upload your first video to get started</p>
@@ -168,6 +171,29 @@
         </section>
 
     </main>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="delete-modal" hidden>
+        <div class="modal">
+            <div class="modal__icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"
+                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" />
+                    <line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" />
+                </svg>
+            </div>
+            <h3 class="modal__title">Delete Video</h3>
+            <p class="modal__desc">Are you sure you want to delete <strong id="delete-modal-name"></strong>? This action
+                cannot be undone.</p>
+            <div class="modal__actions">
+                <button class="modal__btn modal__btn--cancel" id="delete-cancel" type="button">Cancel</button>
+                <button class="modal__btn modal__btn--delete" id="delete-confirm" type="button">Delete</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Toasts -->
     <div class="toasts" id="toasts"></div>
