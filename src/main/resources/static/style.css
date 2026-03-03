@@ -580,7 +580,7 @@ body {
 }
 
 /* ================================================
-   INLINE PLAYER
+   CINEMATIC CUSTOM PLAYER
    ================================================ */
 
 .player {
@@ -594,53 +594,272 @@ body {
 }
 
 .player__wrap {
+    position: relative;
     aspect-ratio: 16 / 9;
     background: #000;
+    overflow: hidden;
+    cursor: pointer;
 }
 
-/* Video.js fills wrapper */
-.player__wrap .video-js {
+.player__video {
     width: 100%;
     height: 100%;
+    display: block;
+    object-fit: contain;
 }
 
-/* Video.js Aperture theme */
-.player__wrap .vjs-big-play-button {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 50% !important;
-    width: 64px !important;
-    height: 64px !important;
-    line-height: 64px !important;
-    font-size: 28px !important;
-    backdrop-filter: blur(8px);
-    transition: background 0.2s, transform 0.15s;
+/* --- Center play/pause overlay --- */
+.player__center-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: opacity 0.25s var(--ease), transform 0.2s var(--ease), background 0.2s;
+    z-index: 3;
 }
 
-.player__wrap .vjs-big-play-button:hover {
-    background: rgba(255, 255, 255, 0.18) !important;
-    transform: scale(1.06);
+.player__center-play:hover {
+    background: rgba(255, 255, 255, 0.18);
+    transform: translate(-50%, -50%) scale(1.08);
 }
 
-.player__wrap .video-js .vjs-control-bar {
-    background: rgba(12, 12, 14, 0.88);
-    backdrop-filter: blur(8px);
-    font-family: var(--f);
-    height: 40px;
+.player--playing .player__center-play {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.8);
 }
 
-.player__wrap .video-js .vjs-play-progress {
-    background: var(--text) !important;
+.player__wrap:hover .player--playing .player__center-play,
+.player--playing .player__wrap:hover .player__center-play {
+    /* don't show center btn on hover while playing — controls bar handles it */
 }
 
-.player__wrap .video-js .vjs-load-progress div {
+.player__center-icon--play {
+    margin-left: 3px;
+}
+
+/* --- Bottom gradient overlay --- */
+.player__gradient {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 140px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.3s var(--ease);
+}
+
+.player__wrap:hover .player__gradient,
+.player--paused .player__gradient {
+    opacity: 1;
+}
+
+/* --- Custom controls bar --- */
+.player__controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0 16px 12px;
+    z-index: 4;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+}
+
+.player__wrap:hover .player__controls,
+.player--paused .player__controls {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* --- Progress bar --- */
+.player__progress {
+    position: relative;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: height 0.15s var(--ease);
+}
+
+.player__progress:hover {
+    height: 6px;
+}
+
+.player__progress-buffered {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.player__progress-filled {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #fff;
+    border-radius: 2px;
+    transition: width 0.05s linear;
+}
+
+.player__progress-scrubber {
+    position: absolute;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.15s var(--ease);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+.player__progress:hover .player__progress-scrubber {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* --- Controls row --- */
+.player__controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.player__controls-left,
+.player__controls-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- Control buttons --- */
+.player__ctrl-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.player__ctrl-btn:hover {
+    color: #fff;
     background: rgba(255, 255, 255, 0.08);
 }
 
-.player__wrap .video-js .vjs-slider {
-    background: rgba(255, 255, 255, 0.1);
+.player__ctrl-btn:active {
+    transform: scale(0.92);
 }
 
+/* --- Volume --- */
+.player__volume-wrap {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.player__vol-slider {
+    width: 0;
+    opacity: 0;
+    transition: width 0.2s var(--ease), opacity 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.player__volume-wrap:hover .player__vol-slider {
+    width: 72px;
+    opacity: 1;
+}
+
+.player__vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.player__vol-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+/* --- Time display --- */
+.player__time {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    user-select: none;
+}
+
+/* --- Speed selector --- */
+.player__speed {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.75);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 4px 6px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.player__speed:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.player__speed option {
+    background: #1a1a1e;
+    color: #e8e8ec;
+}
+
+/* --- Player meta --- */
 .player__meta {
     padding: 16px 20px;
 }
@@ -658,6 +877,7 @@ body {
     line-height: 1.5;
 }
 
+/* --- Close button --- */
 .player__close {
     position: absolute;
     top: 12px;
@@ -667,20 +887,26 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.5);
     border: none;
     border-radius: 50%;
-    color: #fff;
+    color: rgba(255, 255, 255, 0.8);
     cursor: pointer;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    transition: background 0.15s, transform 0.1s;
-    z-index: 2;
+    transition: background 0.15s, transform 0.1s, color 0.15s;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.3s var(--ease), background 0.15s;
+}
+
+.player:hover .player__close {
+    opacity: 1;
 }
 
 .player__close:hover {
     background: rgba(0, 0, 0, 0.85);
-    transform: scale(1.05);
+    color: #fff;
 }
 
 /* ================================================
