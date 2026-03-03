@@ -304,7 +304,7 @@
        ======================================== */
 
     function openPlayer(video) {
-        const streamUrl = API_BASE + '/stream/' + video.videoId;
+        const streamUrl = API_BASE + '/stream/range/' + video.videoId;
         playerVideo.src = streamUrl;
         if (video.contentType) {
             playerVideo.type = video.contentType;

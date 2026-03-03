@@ -4,21 +4,32 @@ package com.stream_app.controllers;
 import com.stream_app.entities.Video;
 import com.stream_app.playload.CustomMessage;
 import com.stream_app.services.VideoService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("api/v1/videos")
 public class VideoController {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(VideoController.class);
 
     @Autowired
     private VideoService videoService;
@@ -69,6 +80,69 @@ public class VideoController {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
                 .body(resource);
+    }
+
+
+    // Stream video in chunks endpoint
+    @GetMapping("/stream/range/{videoId}")
+    public ResponseEntity<Resource> streamVideoInChunks(
+            @PathVariable String videoId,
+            @RequestHeader(value = "Range", required = false) String rangeHeader) {
+
+
+        log.info(rangeHeader);
+        System.err.println("THIS IS ERROR STREAM");
+        Video video = videoService.get(videoId);
+        Path filePath = Paths.get(video.getFilePath());
+
+        Resource resource = new FileSystemResource(filePath);
+        String contentType = video.getContentType();
+
+        if(contentType == null){
+            contentType = "application/octet-stream";
+        }
+        long filLength = filePath.toFile().length();
+
+        if (rangeHeader == null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .body(resource);
+        }
+
+        long rangeStart ;
+        long rangeEnd ;
+
+        String[] ranges = rangeHeader.replace("bytes=", "").split("-");
+        rangeStart = Long.parseLong(ranges[0]);
+        if (ranges.length > 1) {
+            rangeEnd = Long.parseLong(ranges[1]);
+        } else {
+            rangeEnd = filLength - 1;
+        }
+
+        if (rangeEnd >= filLength) {
+            rangeEnd = filLength - 1;
+        }
+        InputStream inputStream;
+        try {
+            inputStream = Files.newInputStream(filePath);
+            inputStream.skip(rangeStart);
+
+        } catch (IOException e) {
+            return ResponseEntity.status(500).build();
+        }
+        log.info("Range Start: {}, Range End: {}", rangeStart, rangeEnd);
+        long contentLength = rangeEnd - rangeStart + 1;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Range", "bytes " + rangeStart + "-" + rangeEnd + "/" + filLength);
+        headers.add("Cache-Control", "no-cache");
+
+        return ResponseEntity.status(206)
+                .headers(headers)
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(new InputStreamResource(inputStream));
+
     }
 
 }
