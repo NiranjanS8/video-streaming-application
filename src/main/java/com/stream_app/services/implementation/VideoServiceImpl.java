@@ -33,7 +33,7 @@ public class VideoServiceImpl implements VideoService {
     String HLS_DIR;
 
     @PostConstruct
-    public void  init() {
+    public void init() {
 
         File dir = new File(DIR);
         if (!dir.exists()) {
@@ -73,7 +73,19 @@ public class VideoServiceImpl implements VideoService {
         video.setFilePath(filePath.toString());
 
         String contentType = file.getContentType();
-        System.out.println(contentType); System.out.println("path = " + uploadPath);
+        System.out.println(contentType);
+        System.out.println("path = " + uploadPath);
+
+        // Save first to generate ID
+        Video savedVideo = videoRepo.save(video);
+
+        // Process using saved ID
+        processVideo(savedVideo.getVideoId(), file);
+
+        // Optionally delete original file
+        Files.deleteIfExists(filePath);
+
+        // save video metadata to database
         return videoRepo.save(video);
     }
 
@@ -86,7 +98,6 @@ public class VideoServiceImpl implements VideoService {
     public List<Video> getAll() {
         return videoRepo.findAll();
     }
-
 
     // Placeholder for video processing method
     @Override
@@ -137,8 +148,7 @@ public class VideoServiceImpl implements VideoService {
         System.out.println(ffmpegCmd.toString());
 
         ProcessBuilder pb = new ProcessBuilder(
-                "cmd.exe", "/c", ffmpegCmd.toString()
-        );
+                "cmd.exe", "/c", ffmpegCmd.toString());
         pb.inheritIO(); // To see ffmpeg output in console
         Process process = pb.start();
         try {
@@ -153,5 +163,38 @@ public class VideoServiceImpl implements VideoService {
         }
 
         return "";
+    }
+
+    @Override
+    public void delete(String videoId) {
+        Video video = this.get(videoId);
+
+        // Delete original video file if it exists
+        try {
+            Path videoPath = Paths.get(video.getFilePath());
+            Files.deleteIfExists(videoPath);
+        } catch (IOException e) {
+            System.err.println("Could not delete video file: " + e.getMessage());
+        }
+
+        // Delete HLS directory for this video
+        try {
+            Path hlsPath = Paths.get(HLS_DIR, videoId);
+            if (Files.exists(hlsPath)) {
+                Files.walk(hlsPath)
+                        .sorted(java.util.Comparator.reverseOrder())
+                        .forEach(p -> {
+                            try {
+                                Files.deleteIfExists(p);
+                            } catch (IOException e) {
+                                /* ignore */ }
+                        });
+            }
+        } catch (IOException e) {
+            System.err.println("Could not delete HLS files: " + e.getMessage());
+        }
+
+        // Delete from database
+        videoRepo.deleteById(videoId);
     }
 }

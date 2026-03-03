@@ -1,6 +1,5 @@
 package com.stream_app.controllers;
 
-
 import com.stream_app.AppConstants;
 import com.stream_app.entities.Video;
 import com.stream_app.playload.CustomMessage;
@@ -30,13 +29,12 @@ import java.util.UUID;
 @RequestMapping("api/v1/videos")
 public class VideoController {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(VideoController.class);
+    private static final Logger log = LoggerFactory.getLogger(VideoController.class);
 
     @Autowired
     private VideoService videoService;
 
-//    Video upload endpoint
+    // Video upload endpoint
     @PostMapping
     public ResponseEntity<CustomMessage> create(
             @RequestParam("file") MultipartFile file,
@@ -49,20 +47,18 @@ public class VideoController {
         video.setVideoId(UUID.randomUUID().toString());
         Video savedVideo = videoService.save(video, file);
 
-        if(savedVideo != null) {
+        if (savedVideo != null) {
             return ResponseEntity.ok(new CustomMessage("Video uploaded successfully", true));
         } else {
             return ResponseEntity.status(500).body(new CustomMessage("Failed to upload video", false));
         }
     }
 
-
     // Get all videos endpoint
     @GetMapping("allVideos")
     public List<Video> getAllVideos() {
         return videoService.getAll();
     }
-
 
     // Streaming endpoint
 
@@ -75,7 +71,7 @@ public class VideoController {
 
         Resource resource = new FileSystemResource(filePath);
 
-        if(contentType == null){
+        if (contentType == null) {
             contentType = "application/octet-stream";
         }
 
@@ -84,16 +80,14 @@ public class VideoController {
                 .body(resource);
     }
 
-
     // Stream video in chunks endpoint
     @GetMapping("/stream/range/{videoId}")
     public ResponseEntity<Resource> streamVideoInChunks(
             @PathVariable String videoId,
             @RequestHeader(value = "Range", required = false) String rangeHeader) {
 
-
         log.info(rangeHeader);
-//        System.err.println("THIS IS ERROR STREAM");
+        // System.err.println("THIS IS ERROR STREAM");
         Video video = videoService.get(videoId);
         Path filePath = Paths.get(video.getFilePath());
 
@@ -123,15 +117,15 @@ public class VideoController {
             rangeEnd = filLength - 1;
         }
 
-//        if (ranges.length > 1) {
-//            rangeEnd = Long.parseLong(ranges[1]);
-//        } else {
-//            rangeEnd = filLength - 1;
-//        }
-//
-//        if (rangeEnd >= filLength) {
-//            rangeEnd = filLength - 1;
-//        }
+        // if (ranges.length > 1) {
+        // rangeEnd = Long.parseLong(ranges[1]);
+        // } else {
+        // rangeEnd = filLength - 1;
+        // }
+        //
+        // if (rangeEnd >= filLength) {
+        // rangeEnd = filLength - 1;
+        // }
         InputStream inputStream;
         HttpHeaders headers;
         try {
@@ -159,10 +153,64 @@ public class VideoController {
             return ResponseEntity.status(500).build();
         }
 
-
-
-
     }
 
+    // serve HLS playlist endpoint
+    @GetMapping("/hls/{videoId}/master.m3u8")
+    public ResponseEntity<Resource> getMasterPlaylist(@PathVariable String videoId) {
+
+        Path path = Paths.get("videos_hsl", videoId, "master.m3u8");
+
+        Resource resource = new FileSystemResource(path.toFile());
+
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.apple.mpegurl"))
+                .body(resource);
+    }
+
+    // Serve HLS variant playlists and segments from quality subdirectories
+    // Handles: /hls/{videoId}/0/prog_index.m3u8, /hls/{videoId}/1/segment_000.ts,
+    // etc.
+    @GetMapping("/hls/{videoId}/{quality}/{fileName}")
+    public ResponseEntity<Resource> serveHlsFile(
+            @PathVariable String videoId,
+            @PathVariable String quality,
+            @PathVariable String fileName) {
+
+        Path path = Paths.get("videos_hsl", videoId, quality, fileName);
+        Resource resource = new FileSystemResource(path.toFile());
+
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        MediaType mediaType;
+        if (fileName.endsWith(".m3u8")) {
+            mediaType = MediaType.parseMediaType("application/vnd.apple.mpegurl");
+        } else if (fileName.endsWith(".ts")) {
+            mediaType = MediaType.parseMediaType("video/MP2T");
+        } else {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .body(resource);
+    }
+
+    // Delete video endpoint
+    @DeleteMapping("/{videoId}")
+    public ResponseEntity<CustomMessage> deleteVideo(@PathVariable String videoId) {
+        try {
+            videoService.delete(videoId);
+            return ResponseEntity.ok(new CustomMessage("Video deleted successfully", true));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new CustomMessage("Failed to delete video", false));
+        }
+    }
 
 }

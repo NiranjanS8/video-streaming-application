@@ -7,7 +7,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 
-
 public interface VideoService {
 
      Video get(String videoId);
@@ -16,9 +15,11 @@ public interface VideoService {
 
      Video getByTitle(String title);
 
-
      List<Video> getAll();
 
-     //video processing method
+     // video processing method
      String processVideo(String videoId, MultipartFile file) throws IOException;
+
+     // delete video
+     void delete(String videoId);
 }

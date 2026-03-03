@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600&display=swap" rel="stylesheet">
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -136,7 +137,7 @@
             <!-- Inline video player (hidden until a video is selected) -->
             <div class="player" id="player" hidden>
                 <div class="player__wrap">
-                    <video class="player__video" id="player-video" controls controlsList="nodownload"></video>
+                    <video id="player-video" class="video-js vjs-big-play-centered vjs-fluid"></video>
                 </div>
                 <div class="player__meta">
                     <p class="player__title" id="player-title">—</p>
@@ -171,6 +172,7 @@
     <!-- Toasts -->
     <div class="toasts" id="toasts"></div>
 
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
     <script src="app.js"></script>
 </body>
 

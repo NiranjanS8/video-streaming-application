@@ -285,10 +285,24 @@
                 <div class="card__body">
                     <p class="card__title">${escHtml(v.title || 'Untitled')}</p>
                     <p class="card__desc">${escHtml(v.description || '')}</p>
-                    ${v.contentType ? '<span class="card__type">' + escHtml(v.contentType.split('/')[1] || v.contentType).toUpperCase() + '</span>' : ''}
+                    <div class="card__footer">
+                        ${v.contentType ? '<span class="card__type">' + escHtml(v.contentType.split('/')[1] || v.contentType).toUpperCase() + '</span>' : ''}
+                        <button class="card__delete" data-id="${v.videoId}" aria-label="Delete video" title="Delete">
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 4v9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
                 </div>
             `;
-            card.addEventListener('click', () => openPlayer(v));
+            // Play on card click (but not on delete button)
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.card__delete')) return;
+                openPlayer(v);
+            });
+            // Delete button
+            card.querySelector('.card__delete').addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteVideo(v.videoId, v.title || 'Untitled');
+            });
             grid.appendChild(card);
         });
     }
@@ -299,28 +313,99 @@
         return d.innerHTML;
     }
 
+    let currentVideoId = null; // track what's playing
+
+    function deleteVideo(videoId, title) {
+        if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+
+        fetch(API_BASE + '/' + videoId, { method: 'DELETE' })
+            .then(res => {
+                if (!res.ok) throw new Error('Delete failed');
+                return res.json();
+            })
+            .then(data => {
+                toast(data.message || 'Video deleted', 'success');
+                // Close player if this video was playing
+                if (currentVideoId === videoId) closePlayer();
+                loadLibrary();
+            })
+            .catch(() => toast('Failed to delete video', 'error'));
+    }
+
     /* ========================================
-       INLINE PLAYER
+       INLINE PLAYER (Video.js)
        ======================================== */
 
+    let vjsPlayer = null;
+
+    function initPlayer() {
+        if (vjsPlayer) return;
+        vjsPlayer = videojs('player-video', {
+            controls: true,
+            autoplay: false,
+            preload: 'auto',
+            fluid: true,
+            responsive: true,
+            controlBar: {
+                children: [
+                    'playToggle',
+                    'volumePanel',
+                    'currentTimeDisplay',
+                    'timeDivider',
+                    'durationDisplay',
+                    'progressControl',
+                    'remainingTimeDisplay',
+                    'playbackRateMenuButton',
+                    'qualitySelector',
+                    'fullscreenToggle'
+                ]
+            },
+            html5: {
+                vhs: {
+                    overrideNative: true,
+                    enableLowInitialPlaylist: true
+                },
+                nativeAudioTracks: false,
+                nativeVideoTracks: false
+            }
+        });
+    }
+
     function openPlayer(video) {
-        const streamUrl = API_BASE + '/stream/range/' + video.videoId;
-        playerVideo.src = streamUrl;
-        if (video.contentType) {
-            playerVideo.type = video.contentType;
-        }
+        initPlayer();
+        currentVideoId = video.videoId;
+
+        const hlsUrl = API_BASE + '/hls/' + video.videoId + '/master.m3u8';
+        const rangeUrl = API_BASE + '/stream/range/' + video.videoId;
+
         playerTitle.textContent = video.title || 'Untitled';
         playerDesc.textContent = video.description || '';
-        playerEl.hidden = false;
-        playerVideo.play().catch(() => { });
 
-        // Scroll to player
+        // Try HLS first, then fall back to direct stream
+        vjsPlayer.src({
+            src: hlsUrl,
+            type: 'application/x-mpegURL'
+        });
+
+        // Handle errors — fall back to range streaming
+        vjsPlayer.one('error', () => {
+            vjsPlayer.src({
+                src: rangeUrl,
+                type: video.contentType || 'video/mp4'
+            });
+            vjsPlayer.play().catch(() => { });
+        });
+
+        playerEl.hidden = false;
+        vjsPlayer.play().catch(() => { });
         playerEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function closePlayer() {
-        playerVideo.pause();
-        playerVideo.src = '';
+        if (vjsPlayer) {
+            vjsPlayer.pause();
+            vjsPlayer.src('');
+        }
         playerEl.hidden = true;
     }
 
