@@ -1,12 +1,14 @@
 package com.stream_app.controllers;
 
 
+import com.stream_app.AppConstants;
 import com.stream_app.entities.Video;
 import com.stream_app.playload.CustomMessage;
 import com.stream_app.services.VideoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -91,14 +93,14 @@ public class VideoController {
 
 
         log.info(rangeHeader);
-        System.err.println("THIS IS ERROR STREAM");
+//        System.err.println("THIS IS ERROR STREAM");
         Video video = videoService.get(videoId);
         Path filePath = Paths.get(video.getFilePath());
 
         Resource resource = new FileSystemResource(filePath);
         String contentType = video.getContentType();
 
-        if(contentType == null){
+        if (contentType == null) {
             contentType = "application/octet-stream";
         }
         long filLength = filePath.toFile().length();
@@ -109,40 +111,58 @@ public class VideoController {
                     .body(resource);
         }
 
-        long rangeStart ;
-        long rangeEnd ;
+        long rangeStart;
+        long rangeEnd;
 
         String[] ranges = rangeHeader.replace("bytes=", "").split("-");
         rangeStart = Long.parseLong(ranges[0]);
-        if (ranges.length > 1) {
-            rangeEnd = Long.parseLong(ranges[1]);
-        } else {
-            rangeEnd = filLength - 1;
-        }
+
+        rangeEnd = rangeStart + AppConstants.CHUNK_SIZE - 1; // Stream 1MB at a time
 
         if (rangeEnd >= filLength) {
             rangeEnd = filLength - 1;
         }
+
+//        if (ranges.length > 1) {
+//            rangeEnd = Long.parseLong(ranges[1]);
+//        } else {
+//            rangeEnd = filLength - 1;
+//        }
+//
+//        if (rangeEnd >= filLength) {
+//            rangeEnd = filLength - 1;
+//        }
         InputStream inputStream;
+        HttpHeaders headers;
         try {
             inputStream = Files.newInputStream(filePath);
             inputStream.skip(rangeStart);
 
+            log.info("Range Start: {}, Range End: {}", rangeStart, rangeEnd);
+            long contentLength = rangeEnd - rangeStart + 1;
+
+            byte[] data = new byte[(int) contentLength];
+            int read = inputStream.read(data, 0, data.length);
+            System.out.println("read(number of bytes read) = " + read);
+
+            headers = new HttpHeaders();
+            headers.add("Content-Range", "bytes " + rangeStart + "-" + rangeEnd + "/" + filLength);
+            headers.add("Cache-Control", "no-cache");
+            headers.setContentLength(contentLength);
+
+            return ResponseEntity.status(206)
+                    .headers(headers)
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .body(new ByteArrayResource(data));
+
         } catch (IOException e) {
             return ResponseEntity.status(500).build();
         }
-        log.info("Range Start: {}, Range End: {}", rangeStart, rangeEnd);
-        long contentLength = rangeEnd - rangeStart + 1;
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Range", "bytes " + rangeStart + "-" + rangeEnd + "/" + filLength);
-        headers.add("Cache-Control", "no-cache");
 
-        return ResponseEntity.status(206)
-                .headers(headers)
-                .contentType(MediaType.parseMediaType(contentType))
-                .body(new InputStreamResource(inputStream));
+
 
     }
+
 
 }

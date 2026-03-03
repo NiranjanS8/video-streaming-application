@@ -18,4 +18,7 @@ public interface VideoService {
 
 
      List<Video> getAll();
+
+     //video processing method
+     String processVideo(String videoId, MultipartFile file) throws IOException;
 }
