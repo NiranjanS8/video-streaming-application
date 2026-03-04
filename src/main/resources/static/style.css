@@ -834,8 +834,9 @@ body {
     user-select: none;
 }
 
-/* --- Speed selector --- */
-.player__speed {
+/* --- Speed & Quality selectors --- */
+.player__speed,
+.player__quality {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 4px;
@@ -849,12 +850,14 @@ body {
     transition: border-color 0.15s, color 0.15s;
 }
 
-.player__speed:hover {
+.player__speed:hover,
+.player__quality:hover {
     border-color: rgba(255, 255, 255, 0.2);
     color: #fff;
 }
 
-.player__speed option {
+.player__speed option,
+.player__quality option {
     background: #1a1a1e;
     color: #e8e8ec;
 }

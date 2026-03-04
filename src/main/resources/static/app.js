@@ -379,6 +379,7 @@
     const volSlider = document.getElementById('vol-slider');
     const volWave = document.getElementById('vol-wave');
     const ctrlSpeed = document.getElementById('ctrl-speed');
+    const ctrlQuality = document.getElementById('ctrl-quality');
     const ctrlFullscreen = document.getElementById('ctrl-fullscreen');
 
     let activeHls = null;
@@ -479,6 +480,32 @@
         volWave.style.opacity = vid.muted ? '0.2' : '1';
     });
 
+    // --- Quality ---
+    ctrlQuality.addEventListener('change', () => {
+        if (activeHls) {
+            activeHls.currentLevel = parseInt(ctrlQuality.value);
+        }
+    });
+
+    function populateQualityLevels(hls) {
+        ctrlQuality.innerHTML = '<option value="-1">Auto</option>';
+        hls.levels.forEach((level, i) => {
+            const h = level.height;
+            const label = h + 'p';
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = label;
+            ctrlQuality.appendChild(opt);
+        });
+        ctrlQuality.value = '-1';
+        ctrlQuality.hidden = false;
+    }
+
+    function resetQuality() {
+        ctrlQuality.innerHTML = '<option value="-1" selected>Auto</option>';
+        ctrlQuality.hidden = true;
+    }
+
     // --- Speed ---
     ctrlSpeed.addEventListener('change', () => {
         vid.playbackRate = parseFloat(ctrlSpeed.value);
@@ -559,11 +586,15 @@
             const hls = new Hls({ startLevel: -1, capLevelToPlayerSize: true });
             hls.loadSource(hlsUrl);
             hls.attachMedia(vid);
-            hls.on(Hls.Events.MANIFEST_PARSED, playWithFallback);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                populateQualityLevels(hls);
+                playWithFallback();
+            });
             hls.on(Hls.Events.ERROR, (_, data) => {
                 if (data.fatal) {
                     hls.destroy();
                     activeHls = null;
+                    resetQuality();
                     // Fall back to range streaming
                     vid.src = rangeUrl;
                     vid.addEventListener('loadedmetadata', playWithFallback, { once: true });
@@ -571,6 +602,7 @@
             });
             activeHls = hls;
         } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+            resetQuality();
             vid.src = hlsUrl;
             vid.addEventListener('loadedmetadata', playWithFallback, { once: true });
             vid.addEventListener('error', () => {
@@ -578,6 +610,7 @@
                 vid.addEventListener('loadedmetadata', playWithFallback, { once: true });
             }, { once: true });
         } else {
+            resetQuality();
             vid.src = rangeUrl;
             vid.addEventListener('loadedmetadata', playWithFallback, { once: true });
         }
