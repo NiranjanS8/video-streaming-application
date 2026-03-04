@@ -11,7 +11,7 @@ public interface VideoService {
 
      Video get(String videoId);
 
-     Video save(Video video, MultipartFile file) throws IOException;
+     Video save(Video video, MultipartFile file, MultipartFile thumbnail) throws IOException;
 
      Video getByTitle(String title);
 

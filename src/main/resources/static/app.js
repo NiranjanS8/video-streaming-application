@@ -46,6 +46,40 @@
     const playerDesc = document.getElementById('player-desc');
     const playerClose = document.getElementById('player-close');
 
+    // Thumbnail picker
+    const thumbInput = document.getElementById('thumb-input');
+    const thumbPicker = document.getElementById('thumb-picker');
+    const thumbPrompt = document.getElementById('thumb-prompt');
+    const thumbSelected = document.getElementById('thumb-selected');
+    const thumbPreview = document.getElementById('thumb-preview');
+    const thumbName = document.getElementById('thumb-name');
+    const thumbRemove = document.getElementById('thumb-remove');
+
+    // Thumbnail picker interactions
+    thumbPicker.addEventListener('click', (e) => {
+        if (e.target.closest('.thumb-picker__remove')) return;
+        thumbInput.click();
+    });
+
+    thumbInput.addEventListener('change', () => {
+        if (thumbInput.files.length > 0) {
+            const f = thumbInput.files[0];
+            thumbName.textContent = f.name;
+            thumbPreview.src = URL.createObjectURL(f);
+            thumbPrompt.hidden = true;
+            thumbSelected.hidden = false;
+        }
+    });
+
+    thumbRemove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        thumbInput.value = '';
+        thumbPrompt.hidden = false;
+        thumbSelected.hidden = true;
+        thumbPreview.src = '';
+        thumbName.textContent = '';
+    });
+
     const API_BASE = '/api/v1/videos';
 
     let file = null;
@@ -173,6 +207,12 @@
         fd.append('title', title);
         fd.append('description', descInput.value.trim());
 
+        // Optional thumbnail
+        const thumbInput = document.getElementById('thumb-input');
+        if (thumbInput.files.length > 0) {
+            fd.append('thumbnail', thumbInput.files[0]);
+        }
+
         cta.disabled = true;
         prog.hidden = false;
         prog.classList.remove('prog--fade');
@@ -274,8 +314,11 @@
             const card = document.createElement('div');
             card.className = 'card';
             card.style.animationDelay = (i * 0.05) + 's';
+            const thumbUrl = API_BASE + '/thumbnail/' + v.videoId;
             card.innerHTML = `
                 <div class="card__thumb">
+                    <img class="card__thumb-img" src="${thumbUrl}" alt="" loading="lazy"
+                         onerror="this.style.display='none'">
                     <div class="card__play">
                         <div class="card__play-icon">
                             <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><polygon points="4,2 4,12 12,7" fill="currentColor"/></svg>

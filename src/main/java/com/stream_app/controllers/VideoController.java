@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.InputStreamResource;
+
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -34,24 +34,42 @@ public class VideoController {
     @Autowired
     private VideoService videoService;
 
-    // Video upload endpoint
+    // Video upload endpoint (with optional custom thumbnail)
     @PostMapping
     public ResponseEntity<CustomMessage> create(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
-            @RequestParam("description") String description) throws IOException {
+            @RequestParam("description") String description,
+            @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail) throws IOException {
 
         Video video = new Video();
         video.setTitle(title);
         video.setDescription(description);
         video.setVideoId(UUID.randomUUID().toString());
-        Video savedVideo = videoService.save(video, file);
+        Video savedVideo = videoService.save(video, file, thumbnail);
 
         if (savedVideo != null) {
             return ResponseEntity.ok(new CustomMessage("Video uploaded successfully", true));
         } else {
             return ResponseEntity.status(500).body(new CustomMessage("Failed to upload video", false));
         }
+    }
+
+    // Serve video thumbnail
+    @GetMapping("/thumbnail/{videoId}")
+    public ResponseEntity<Resource> getThumbnail(@PathVariable String videoId) {
+        Video video = videoService.get(videoId);
+        if (video.getThumbnailPath() == null || video.getThumbnailPath().isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Path thumbPath = Paths.get(video.getThumbnailPath());
+        Resource resource = new FileSystemResource(thumbPath);
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(resource);
     }
 
     // Get all videos endpoint

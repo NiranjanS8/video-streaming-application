@@ -1,6 +1,5 @@
 package com.stream_app.services.implementation;
 
-import ch.qos.logback.core.util.StringUtil;
 import com.stream_app.entities.Video;
 import com.stream_app.repositories.VideoRepo;
 import com.stream_app.services.VideoService;
@@ -59,7 +58,7 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
-    public Video save(Video video, MultipartFile file) throws IOException {
+    public Video save(Video video, MultipartFile file, MultipartFile thumbnail) throws IOException {
 
         String fileName = StringUtils.cleanPath(file.getOriginalFilename());
 
@@ -75,10 +74,22 @@ public class VideoServiceImpl implements VideoService {
         video.setContentType(file.getContentType());
         video.setFilePath(filePath.toString());
 
+        // Save custom thumbnail if provided
+        if (thumbnail != null && !thumbnail.isEmpty()) {
+            Path thumbDir = Paths.get("thumbnails");
+            Files.createDirectories(thumbDir);
+            String thumbName = video.getVideoId() + ".jpg";
+            Path thumbPath = thumbDir.resolve(thumbName);
+            try (InputStream is = thumbnail.getInputStream()) {
+                Files.copy(is, thumbPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+            video.setThumbnailPath(thumbPath.toString());
+        }
+
         // Save to database first
         Video savedVideo = videoRepo.save(video);
 
-        // Process HLS in the background (non-blocking, runs on separate thread)
+        // Process HLS + auto-thumbnail in the background (non-blocking)
         videoProcessingService.processVideoAsync(savedVideo.getVideoId());
 
         return savedVideo;
@@ -126,6 +137,15 @@ public class VideoServiceImpl implements VideoService {
             }
         } catch (IOException e) {
             System.err.println("Could not delete HLS files: " + e.getMessage());
+        }
+
+        // Delete thumbnail if it exists
+        try {
+            if (video.getThumbnailPath() != null && !video.getThumbnailPath().isEmpty()) {
+                Files.deleteIfExists(Paths.get(video.getThumbnailPath()));
+            }
+        } catch (IOException e) {
+            System.err.println("Could not delete thumbnail: " + e.getMessage());
         }
 
         // Delete from database

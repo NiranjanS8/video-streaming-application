@@ -86,8 +86,46 @@ public class VideoProcessingService {
             } else {
                 log.error("HLS processing failed for video: {} with exit code {}", videoId, exitCode);
             }
+
+            // Auto-generate thumbnail if not already set (no custom thumbnail uploaded)
+            video = videoRepo.findById(videoId).orElse(null);
+            if (video != null && (video.getThumbnailPath() == null || video.getThumbnailPath().isEmpty())) {
+                generateThumbnail(video, videoPath);
+            }
+
         } catch (Exception e) {
             log.error("Error during HLS processing for video: {}", videoId, e);
+        }
+    }
+
+    private void generateThumbnail(Video video, Path videoPath) {
+        try {
+            Path thumbDir = Paths.get("thumbnails");
+            Files.createDirectories(thumbDir);
+            String thumbName = video.getVideoId() + ".jpg";
+            Path thumbPath = thumbDir.resolve(thumbName);
+
+            // ffmpeg: capture a frame at 2 seconds, scale to 640x360
+            String cmd = String.format(
+                    "ffmpeg -i \"%s\" -ss 00:00:02 -vframes 1 -vf scale=640:360 -q:v 2 \"%s\" -y",
+                    videoPath.toString(), thumbPath.toString());
+
+            log.info("Generating thumbnail: {}", cmd);
+
+            ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", cmd);
+            pb.inheritIO();
+            Process process = pb.start();
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                video.setThumbnailPath(thumbPath.toString());
+                videoRepo.save(video);
+                log.info("Thumbnail generated for video: {}", video.getVideoId());
+            } else {
+                log.error("Thumbnail generation failed for video: {}", video.getVideoId());
+            }
+        } catch (Exception e) {
+            log.error("Error generating thumbnail for video: {}", video.getVideoId(), e);
         }
     }
 }
