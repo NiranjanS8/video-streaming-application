@@ -24,7 +24,10 @@ import java.util.List;
 public class VideoServiceImpl implements VideoService {
 
     @Autowired
-    VideoRepo videoRepo;
+    private VideoRepo videoRepo;
+
+    @Autowired
+    private VideoProcessingService videoProcessingService;
 
     @Value("${files.video}")
     String DIR;
@@ -72,21 +75,13 @@ public class VideoServiceImpl implements VideoService {
         video.setContentType(file.getContentType());
         video.setFilePath(filePath.toString());
 
-        String contentType = file.getContentType();
-        System.out.println(contentType);
-        System.out.println("path = " + uploadPath);
-
-        // Save first to generate ID
+        // Save to database first
         Video savedVideo = videoRepo.save(video);
 
-        // Process using saved ID
-        processVideo(savedVideo.getVideoId(), file);
+        // Process HLS in the background (non-blocking, runs on separate thread)
+        videoProcessingService.processVideoAsync(savedVideo.getVideoId());
 
-        // Optionally delete original file
-        Files.deleteIfExists(filePath);
-
-        // save video metadata to database
-        return videoRepo.save(video);
+        return savedVideo;
     }
 
     @Override
@@ -99,70 +94,9 @@ public class VideoServiceImpl implements VideoService {
         return videoRepo.findAll();
     }
 
-    // Placeholder for video processing method
     @Override
-    public String processVideo(String videoId, MultipartFile file) throws IOException {
-
-        Video video = this.get(videoId);
-        Path videoPath = Paths.get(video.getFilePath());
-
-        // Create base HLS directory
-        Path baseDir = Paths.get(HLS_DIR, videoId);
-        Files.createDirectories(baseDir);
-
-        StringBuilder ffmpegCmd = new StringBuilder();
-
-        ffmpegCmd.append("ffmpeg -i ")
-                .append("\"").append(videoPath.toString()).append("\" ")
-
-                // map video + audio 3 times
-                .append("-map 0:v:0 -map 0:a:0 ")
-                .append("-map 0:v:0 -map 0:a:0 ")
-                .append("-map 0:v:0 -map 0:a:0 ")
-
-                // set resolutions + bitrates
-                .append("-s:v:0 640x360 -b:v:0 800k ")
-                .append("-s:v:1 1280x720 -b:v:1 2800k ")
-                .append("-s:v:2 1920x1080 -b:v:2 5000k ")
-
-                // FIXED stream mapping
-                .append("-var_stream_map ")
-                .append("\"v:0,a:0 v:1,a:1 v:2,a:2\" ")
-
-                .append("-master_pl_name master.m3u8 ")
-
-                .append("-f hls ")
-                .append("-hls_time 10 ")
-                .append("-hls_list_size 0 ")
-                .append("-hls_flags independent_segments ")
-
-                .append("-hls_segment_filename ")
-                .append("\"")
-                .append(HLS_DIR).append("/").append(videoId)
-                .append("/%v/segment_%03d.ts\" ")
-
-                .append("\"")
-                .append(HLS_DIR).append("/").append(videoId)
-                .append("/%v/prog_index.m3u8\"");
-
-        System.out.println(ffmpegCmd.toString());
-
-        ProcessBuilder pb = new ProcessBuilder(
-                "cmd.exe", "/c", ffmpegCmd.toString());
-        pb.inheritIO(); // To see ffmpeg output in console
-        Process process = pb.start();
-        try {
-            int exitCode = process.waitFor();
-            if (exitCode == 0) {
-                System.out.println("Video processed successfully");
-            } else {
-                System.err.println("Video processing failed with exit code " + exitCode);
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        return "";
+    public void processVideo(String videoId) {
+        videoProcessingService.processVideoAsync(videoId);
     }
 
     @Override

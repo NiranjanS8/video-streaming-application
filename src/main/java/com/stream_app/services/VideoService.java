@@ -17,8 +17,8 @@ public interface VideoService {
 
      List<Video> getAll();
 
-     // video processing method
-     String processVideo(String videoId, MultipartFile file) throws IOException;
+     // video processing method (runs async in background)
+     void processVideo(String videoId);
 
      // delete video
      void delete(String videoId);

@@ -16,7 +16,7 @@ class SpringStreamBackendApplicationTests {
 	@Test
 	void contextLoads() throws IOException {
 
-		videoService.processVideo("04601909-d43a-49f5-8534-22a24bb84c8a", null);
+		videoService.processVideo("04601909-d43a-49f5-8534-22a24bb84c8a");
 	}
 
 }
