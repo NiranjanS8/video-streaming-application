@@ -1,4 +1,4 @@
-# hls video pipeline using springboot
+# Hls Video Streaming Srvice
 
 Video upload and streaming platform built with Spring Boot.  
 It supports:
