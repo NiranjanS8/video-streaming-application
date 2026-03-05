@@ -1,6 +1,8 @@
 package com.stream_app.services.implementation;
 
+import com.stream_app.entities.AppUser;
 import com.stream_app.entities.Video;
+import com.stream_app.repositories.UserRepo;
 import com.stream_app.repositories.VideoRepo;
 import com.stream_app.services.VideoService;
 import jakarta.annotation.PostConstruct;
@@ -27,6 +29,9 @@ public class VideoServiceImpl implements VideoService {
 
     @Autowired
     private VideoProcessingService videoProcessingService;
+
+    @Autowired
+    private UserRepo userRepo;
 
     @Value("${files.video}")
     String DIR;
@@ -58,9 +63,10 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
-    public Video save(Video video, MultipartFile file, MultipartFile thumbnail) throws IOException {
+    public Video save(Video video, MultipartFile file, MultipartFile thumbnail, Long userId) throws IOException {
 
         String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+        AppUser owner = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
 
         Path uploadPath = Paths.get(DIR);
         Files.createDirectories(uploadPath); // extra safety
@@ -73,6 +79,7 @@ public class VideoServiceImpl implements VideoService {
 
         video.setContentType(file.getContentType());
         video.setFilePath(filePath.toString());
+        video.setUser(owner);
 
         // Save custom thumbnail if provided
         if (thumbnail != null && !thumbnail.isEmpty()) {
@@ -106,13 +113,21 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
+    public List<Video> getAllByUserId(Long userId) {
+        return videoRepo.findByUserId(userId);
+    }
+
+    @Override
     public void processVideo(String videoId) {
         videoProcessingService.processVideoAsync(videoId);
     }
 
     @Override
-    public void delete(String videoId) {
+    public void delete(String videoId, Long userId) {
         Video video = this.get(videoId);
+        if (video.getUser() == null || !video.getUser().getId().equals(userId)) {
+            throw new RuntimeException("You are not allowed to delete this video");
+        }
 
         // Delete original video file if it exists
         try {

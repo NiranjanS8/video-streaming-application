@@ -126,6 +126,35 @@ body {
     letter-spacing: 0.08em;
 }
 
+.topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.topbar__user {
+    font-size: 0.8rem;
+    color: var(--text-2);
+}
+
+.topbar__logout {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-2);
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.topbar__logout:hover {
+    border-color: var(--border-hl);
+    color: var(--text);
+    background: var(--surface-2);
+}
+
 /* ================================================
    LAYOUT — Two Columns
    ================================================ */

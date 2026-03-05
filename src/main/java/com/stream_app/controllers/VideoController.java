@@ -3,6 +3,7 @@ package com.stream_app.controllers;
 import com.stream_app.AppConstants;
 import com.stream_app.entities.Video;
 import com.stream_app.playload.CustomMessage;
+import com.stream_app.security.AuthenticatedUser;
 import com.stream_app.services.VideoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,7 +29,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("api/v1/videos")
+@RequestMapping({ "/api/v1/videos", "/videos" })
 public class VideoController {
 
     private static final Logger log = LoggerFactory.getLogger(VideoController.class);
@@ -44,13 +46,14 @@ public class VideoController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam("description") String description,
-            @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail) throws IOException {
+            @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail,
+            @AuthenticationPrincipal AuthenticatedUser user) throws IOException {
 
         Video video = new Video();
         video.setTitle(title);
         video.setDescription(description);
         video.setVideoId(UUID.randomUUID().toString());
-        Video savedVideo = videoService.save(video, file, thumbnail);
+        Video savedVideo = videoService.save(video, file, thumbnail, user.getId());
 
         if (savedVideo != null) {
             return ResponseEntity.ok(new CustomMessage("Video uploaded successfully", true));
@@ -78,13 +81,14 @@ public class VideoController {
 
     // Get all videos endpoint
     @GetMapping("allVideos")
-    public List<Video> getAllVideos() {
-        List<Video> videos = videoService.getAll();
-        videos.forEach(video -> {
-            Path masterPlaylist = Paths.get(HLS_DIR, video.getVideoId(), "master.m3u8");
-            video.setProcessing(!Files.exists(masterPlaylist));
-        });
-        return videos;
+    public List<Video> getAllVideos(@AuthenticationPrincipal AuthenticatedUser user) {
+        return annotateProcessing(videoService.getAllByUserId(user.getId()));
+    }
+
+    // Get only videos owned by authenticated user
+    @GetMapping("/my")
+    public List<Video> getMyVideos(@AuthenticationPrincipal AuthenticatedUser user) {
+        return annotateProcessing(videoService.getAllByUserId(user.getId()));
     }
 
     // Streaming endpoint
@@ -231,13 +235,25 @@ public class VideoController {
 
     // Delete video endpoint
     @DeleteMapping("/{videoId}")
-    public ResponseEntity<CustomMessage> deleteVideo(@PathVariable String videoId) {
+    public ResponseEntity<CustomMessage> deleteVideo(@PathVariable String videoId,
+            @AuthenticationPrincipal AuthenticatedUser user) {
         try {
-            videoService.delete(videoId);
+            videoService.delete(videoId, user.getId());
             return ResponseEntity.ok(new CustomMessage("Video deleted successfully", true));
         } catch (Exception e) {
+            if (e.getMessage() != null && e.getMessage().contains("not allowed")) {
+                return ResponseEntity.status(403).body(new CustomMessage(e.getMessage(), false));
+            }
             return ResponseEntity.status(500).body(new CustomMessage("Failed to delete video", false));
         }
+    }
+
+    private List<Video> annotateProcessing(List<Video> videos) {
+        videos.forEach(video -> {
+            Path masterPlaylist = Paths.get(HLS_DIR, video.getVideoId(), "master.m3u8");
+            video.setProcessing(!Files.exists(masterPlaylist));
+        });
+        return videos;
     }
 
 }

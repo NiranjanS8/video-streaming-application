@@ -33,6 +33,8 @@
     const ctaText = document.getElementById('cta-text');
     const doneState = document.getElementById('done-state');
     const toastsEl = document.getElementById('toasts');
+    const topbarUser = document.getElementById('topbar-user');
+    const logoutBtn = document.getElementById('logout-btn');
 
     // Library
     const grid = document.getElementById('grid');
@@ -82,6 +84,8 @@
 
     const API_BASE = '/api/v1/videos';
     const LIBRARY_POLL_MS = 4000;
+    const AUTH_TOKEN_KEY = 'authToken';
+    const AUTH_USER_KEY = 'authUsername';
 
     let file = null;
     let libraryPollTimer = null;
@@ -130,6 +134,32 @@
     }
 
     const ARROW_SVG = '<svg class="cta__arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 12V4M5 6L8 3L11 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    function clearAuthAndRedirect() {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
+        window.location.href = '/login.html';
+    }
+
+    function getToken() {
+        return localStorage.getItem(AUTH_TOKEN_KEY);
+    }
+
+    function authHeaders(extra = {}) {
+        const token = getToken();
+        return { ...extra, Authorization: 'Bearer ' + token };
+    }
+
+    function requireAuth() {
+        const token = getToken();
+        if (!token) {
+            clearAuthAndRedirect();
+            return false;
+        }
+        const username = localStorage.getItem(AUTH_USER_KEY) || 'User';
+        if (topbarUser) topbarUser.textContent = username;
+        return true;
+    }
 
     /* ========================================
        FILE SELECTION & UPLOAD
@@ -236,6 +266,10 @@
         });
 
         xhr.addEventListener('load', () => {
+            if (xhr.status === 401 || xhr.status === 403) {
+                clearAuthAndRedirect();
+                return;
+            }
             if (xhr.status >= 200 && xhr.status < 300) {
                 handleSuccess(xhr.responseText);
             } else {
@@ -251,6 +285,7 @@
         });
 
         xhr.open('POST', API_BASE);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + getToken());
         xhr.send(fd);
     });
 
@@ -293,8 +328,12 @@
     function loadLibrary() {
         if (libraryFetchInFlight) return;
         libraryFetchInFlight = true;
-        fetch(API_BASE + '/allVideos')
+        fetch(API_BASE + '/my', { headers: authHeaders() })
             .then(res => {
+                if (res.status === 401 || res.status === 403) {
+                    clearAuthAndRedirect();
+                    throw new Error('Unauthorized');
+                }
                 if (!res.ok) throw new Error('Failed to load');
                 return res.json();
             })
@@ -424,6 +463,10 @@
 
         fetch(API_BASE + '/' + videoId, { method: 'DELETE' })
             .then(res => {
+                if (res.status === 401 || res.status === 403) {
+                    clearAuthAndRedirect();
+                    throw new Error('Unauthorized');
+                }
                 if (!res.ok) throw new Error('Delete failed');
                 return res.json();
             })
@@ -712,10 +755,13 @@
         setTimeout(() => refreshBtn.classList.remove('lib-refresh--spin'), 400);
     });
 
+    logoutBtn.addEventListener('click', clearAuthAndRedirect);
+
     /* ========================================
        INIT
        ======================================== */
 
+    if (!requireAuth()) return;
     loadLibrary();
 
 })();

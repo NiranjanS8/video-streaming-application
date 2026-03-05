@@ -2,9 +2,11 @@ package com.stream_app.entities;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,10 +27,13 @@ public class Video {
     private String contentType;
     private String filePath;
     private String thumbnailPath;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = true)
+    @JsonIgnore
+    private AppUser user;
+
     @Transient
     private boolean processing;
-
-    // @ManyToOne
-    // private Course course;
 
 }
