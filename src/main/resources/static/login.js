@@ -112,9 +112,9 @@
             }
 
             const data = await res.json();
-            localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-            localStorage.setItem(AUTH_USER_KEY, data.username || username);
-            localStorage.setItem(AUTH_USER_ID_KEY, String(data.userId || ''));
+            sessionStorage.setItem(AUTH_TOKEN_KEY, data.token);
+            sessionStorage.setItem(AUTH_USER_KEY, data.username || username);
+            sessionStorage.setItem(AUTH_USER_ID_KEY, String(data.userId || ''));
             window.location.href = '/';
         } catch {
             setMsg('Login request failed. Check your connection and try again.', true);
@@ -174,7 +174,7 @@
         }
     });
 
-    if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+    if (sessionStorage.getItem(AUTH_TOKEN_KEY)) {
         window.location.href = '/';
     }
 

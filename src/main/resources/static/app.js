@@ -136,13 +136,13 @@
     const ARROW_SVG = '<svg class="cta__arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 12V4M5 6L8 3L11 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
     function clearAuthAndRedirect() {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        localStorage.removeItem(AUTH_USER_KEY);
+        sessionStorage.removeItem(AUTH_TOKEN_KEY);
+        sessionStorage.removeItem(AUTH_USER_KEY);
         window.location.href = '/login.html';
     }
 
     function getToken() {
-        return localStorage.getItem(AUTH_TOKEN_KEY);
+        return sessionStorage.getItem(AUTH_TOKEN_KEY);
     }
 
     function authHeaders(extra = {}) {
@@ -156,7 +156,7 @@
             clearAuthAndRedirect();
             return false;
         }
-        const username = localStorage.getItem(AUTH_USER_KEY) || 'User';
+        const username = sessionStorage.getItem(AUTH_USER_KEY) || 'User';
         if (topbarUser) topbarUser.textContent = username;
         return true;
     }
