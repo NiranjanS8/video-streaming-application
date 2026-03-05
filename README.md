@@ -32,27 +32,58 @@ Video upload and streaming platform with authentication, user-based ownership, a
 
 ```text
 src/main/java/com/stream_app
-  config/SecurityConfig.java
-  controllers/AuthController.java
-  controllers/VideoController.java
-  dto/auth/*
-  dto/metrics/*
-  entities/AppUser.java
-  entities/Video.java
-  repositories/UserRepo.java
-  repositories/VideoRepo.java
-  security/*
-  services/*
-  services/implementation/*
 
-src/main/resources
-  application.properties
-  static/index.html
-  static/login.html
-  static/app.js
-  static/login.js
-  static/style.css
-  static/login.css
+config/
+    SecurityConfig.java
+    WebConfig.java
+
+security/
+    JwtAuthenticationFilter.java
+    JwtService.java
+    JwtAuthenticationEntryPoint.java
+
+controllers/
+    AuthController.java
+    VideoController.java
+    MetricsController.java
+
+services/
+    auth/
+        AuthService.java
+        AuthServiceImpl.java
+
+    video/
+        VideoService.java
+        VideoServiceImpl.java
+
+    processing/
+        VideoProcessingService.java
+        FfmpegService.java
+
+repositories/
+    UserRepository.java
+    VideoRepository.java
+
+entities/
+    AppUser.java
+    Video.java
+
+dto/
+    auth/
+    video/
+    metrics/
+
+queue/
+    VideoProcessingProducer.java
+    VideoProcessingConsumer.java
+
+storage/
+    VideoStorageService.java
+    ThumbnailStorageService.java
+
+utils/
+    HlsGenerator.java
+    ThumbnailGenerator.java
 ```
 
 ## Runtime Storage
