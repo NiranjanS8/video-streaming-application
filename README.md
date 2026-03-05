@@ -1,4 +1,4 @@
-# Spring Stream Backend
+# hls video pipeline using springboot
 
 Video upload and streaming platform built with Spring Boot.  
 It supports:
@@ -43,52 +43,6 @@ Runtime storage directories (created automatically if missing):
 - `videos/` for original uploads
 - `videos_hsl/` for HLS playlists + segments
 - `thumbnails/` for generated or uploaded thumbnails
-
-## Prerequisites
-
-1. Java 21 installed
-2. Maven installed (or use `mvnw.cmd`)
-3. MySQL running locally
-4. FFmpeg installed and available in PATH
-
-Quick checks:
-
-```powershell
-java -version
-mvn -version
-mysql --version
-ffmpeg -version
-```
-
-## Database Setup
-
-Create the database:
-
-```sql
-CREATE DATABASE streaming_app;
-```
-
-Default DB config from `application.properties`:
-
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/streaming_app
-spring.datasource.username=root
-spring.datasource.password=admin@123
-spring.jpa.hibernate.ddl-auto=update
-```
-
-Update username/password in `src/main/resources/application.properties` as needed.
-
-## Run Locally
-
-```powershell
-# from project root
-mvn spring-boot:run
-```
-
-App runs on:
-
-- Backend + UI: `http://localhost:9090`
 
 ## API Endpoints
 
@@ -165,28 +119,33 @@ Also removes source file, HLS directory, and thumbnail.
 
 ## Architecture Diagram
 
-```mermaid
-flowchart LR
-    U[User Browser\nindex.html + app.js] -->|HTTP| VC[VideoController\n/api/v1/videos/*]
+```text
+[Browser UI: index.html + app.js]
+          |
+          | HTTP
+          v
+[VideoController: /api/v1/videos/*]
+    |                 |                   |
+    | save metadata   | save source file  | save optional thumbnail
+    v                 v                   v
+[MySQL videos]      [videos/]          [thumbnails/]
+          |
+          | trigger async
+          v
+[VideoProcessingService @Async]
+    | read source from videos/
+    | run FFmpeg transcode (360p/720p/1080p)
+    v
+[videos_hsl/{videoId}/master.m3u8 + segments]
+    |
+    | update processing flag via manifest existence
+    v
+[Frontend library shows Processing... until ready]
 
-    VC -->|save metadata| DB[(MySQL\nvideos table)]
-    VC -->|upload file| VDIR[(videos/)]
-    VC -->|optional thumb upload| TDIR[(thumbnails/)]
-
-    VC -->|trigger async job| VPS[VideoProcessingService\n@Async]
-    VPS -->|read source| VDIR
-    VPS -->|FFmpeg transcode| HLS[(videos_hsl/{videoId}/...)]
-    VPS -->|auto thumbnail if missing| TDIR
-    VPS -->|update thumbnailPath| DB
-
-    U -->|list videos| VC
-    VC -->|video + processing flag| U
-
-    U -->|HLS playback| VC
-    VC -->|master.m3u8 + segments| HLS
-
-    U -->|fallback stream/range| VC
-    VC -->|video bytes| VDIR
+Playback path:
+Browser -> VideoController -> HLS endpoints
+Fallback:
+Browser -> VideoController -> /stream/range/{videoId}
 ```
 
 ## Frontend Behavior
@@ -195,43 +154,3 @@ flowchart LR
 - Library cards show `Processing...` badge until HLS is available
 - Library auto-refreshes while processing jobs are active
 - Player attempts HLS first, then falls back to range streaming
-
-## Configuration
-
-`src/main/resources/application.properties`:
-
-```properties
-server.port=9090
-files.video=videos/
-files.video.hsl=videos_hsl/
-spring.servlet.multipart.max-file-size=100MB
-spring.servlet.multipart.max-request-size=100MB
-```
-
-## Build
-
-```powershell
-mvn clean compile
-```
-
-## Troubleshooting
-
-- FFmpeg not found:
-  - Ensure `ffmpeg` command is available in PATH.
-- Upload works but HLS never appears:
-  - Check application logs for FFmpeg command/exit code.
-  - Verify write access to `videos_hsl/`.
-- Database connection failure:
-  - Verify MySQL is running and credentials in `application.properties` are correct.
-- Thumbnail 404:
-  - Expected when custom thumbnail was not uploaded and auto-generation failed.
-
-## Notes
-
-- `description` is currently received as required request param in the controller.
-- Uploaded files keep original filename in `videos/`; in production, prefer unique storage names.
-- No authentication/authorization is enabled yet.
-
-## License
-
-No license file is currently defined in this repository.
