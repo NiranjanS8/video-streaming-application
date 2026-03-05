@@ -164,24 +164,5 @@ UI:
 
 ## Architecture Diagram
 
-```text
-[login.html / index.html]
-         |
-         | Bearer JWT
-         v
-[Spring Security + JWT Filter]
-         |
-         v
-[AuthController] ---> [users table]
-         |
-         v
-[VideoController] ---> [videos table (user_id + metrics)]
-     |           \
-     |            \---> [videos/]
-     |            \---> [thumbnails/]
-     |            \---> [videos_hsl/]
-     |
-     v
-[VideoProcessingService @Async + FFmpeg/ffprobe]
-```
+![Architecture Diagram](Architecture.png)
 
