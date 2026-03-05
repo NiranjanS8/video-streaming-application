@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,6 +25,8 @@ public class Video {
     private String contentType;
     private String filePath;
     private String thumbnailPath;
+    @Transient
+    private boolean processing;
 
     // @ManyToOne
     // private Course course;

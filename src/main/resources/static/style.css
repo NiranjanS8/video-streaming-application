@@ -1058,6 +1058,26 @@ body {
     left: 0;
 }
 
+.card__status {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+}
+
+.card__status--processing {
+    color: #fcd34d;
+    background: rgba(17, 24, 39, 0.75);
+    border-color: rgba(252, 211, 77, 0.45);
+    backdrop-filter: blur(6px);
+}
+
 .card__play {
     position: absolute;
     inset: 0;

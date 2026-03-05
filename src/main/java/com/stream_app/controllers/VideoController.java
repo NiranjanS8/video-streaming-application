@@ -7,6 +7,7 @@ import com.stream_app.services.VideoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 
@@ -33,6 +34,9 @@ public class VideoController {
 
     @Autowired
     private VideoService videoService;
+
+    @Value("${files.video.hsl}")
+    private String HLS_DIR;
 
     // Video upload endpoint (with optional custom thumbnail)
     @PostMapping
@@ -75,7 +79,12 @@ public class VideoController {
     // Get all videos endpoint
     @GetMapping("allVideos")
     public List<Video> getAllVideos() {
-        return videoService.getAll();
+        List<Video> videos = videoService.getAll();
+        videos.forEach(video -> {
+            Path masterPlaylist = Paths.get(HLS_DIR, video.getVideoId(), "master.m3u8");
+            video.setProcessing(!Files.exists(masterPlaylist));
+        });
+        return videos;
     }
 
     // Streaming endpoint

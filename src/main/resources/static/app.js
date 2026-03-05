@@ -81,8 +81,11 @@
     });
 
     const API_BASE = '/api/v1/videos';
+    const LIBRARY_POLL_MS = 4000;
 
     let file = null;
+    let libraryPollTimer = null;
+    let libraryFetchInFlight = false;
 
     /* ========================================
        HELPERS
@@ -288,16 +291,46 @@
        ======================================== */
 
     function loadLibrary() {
+        if (libraryFetchInFlight) return;
+        libraryFetchInFlight = true;
         fetch(API_BASE + '/allVideos')
             .then(res => {
                 if (!res.ok) throw new Error('Failed to load');
                 return res.json();
             })
-            .then(videos => renderGrid(videos))
+            .then(videos => {
+                renderGrid(videos);
+                syncLibraryPolling(videos);
+            })
             .catch(() => {
                 grid.innerHTML = '';
                 emptyState.hidden = false;
+                stopLibraryPolling();
+            })
+            .finally(() => {
+                libraryFetchInFlight = false;
             });
+    }
+
+    function startLibraryPolling() {
+        if (libraryPollTimer) return;
+        libraryPollTimer = setInterval(() => {
+            // Avoid background churn when tab is hidden
+            if (document.hidden) return;
+            loadLibrary();
+        }, LIBRARY_POLL_MS);
+    }
+
+    function stopLibraryPolling() {
+        if (!libraryPollTimer) return;
+        clearInterval(libraryPollTimer);
+        libraryPollTimer = null;
+    }
+
+    function syncLibraryPolling(videos) {
+        const hasProcessing = Array.isArray(videos) && videos.some(v => v.processing);
+        if (hasProcessing) startLibraryPolling();
+        else stopLibraryPolling();
     }
 
     function renderGrid(videos) {
@@ -319,6 +352,7 @@
                 <div class="card__thumb">
                     <img class="card__thumb-img" src="${thumbUrl}" alt="" loading="lazy"
                          onerror="this.style.display='none'">
+                    ${v.processing ? '<span class="card__status card__status--processing">Processing...</span>' : ''}
                     <div class="card__play">
                         <div class="card__play-icon">
                             <svg width="16" height="16" viewBox="0 0 14 14" fill="none"><polygon points="4,2 4,12 12,7" fill="currentColor"/></svg>
