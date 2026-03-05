@@ -677,6 +677,60 @@ body {
     margin-bottom: 0;
 }
 
+.metrics {
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: var(--bg-raised);
+    padding: 16px;
+    margin-bottom: 24px;
+    animation: slideUp 0.25s var(--ease);
+}
+
+.metrics__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.metrics__title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.metrics__sub {
+    font-size: 0.75rem;
+    color: var(--text-3);
+}
+
+.metrics__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.metric {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--r2);
+    padding: 10px 12px;
+}
+
+.metric__bucket {
+    font-size: 0.72rem;
+    color: var(--text-3);
+    margin-bottom: 6px;
+}
+
+.metric__line {
+    font-size: 0.78rem;
+    color: var(--text-2);
+    margin-bottom: 3px;
+    font-variant-numeric: tabular-nums;
+}
+
 .lib-refresh {
     width: 36px;
     height: 36px;

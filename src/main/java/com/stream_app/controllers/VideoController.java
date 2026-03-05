@@ -100,26 +100,40 @@ public class VideoController {
     public MetricsSummaryResponse getMetricsSummary(@AuthenticationPrincipal AuthenticatedUser user) {
         List<Video> videos = videoService.getAllByUserId(user.getId());
 
-        Map<String, List<Video>> buckets = new LinkedHashMap<>();
-        buckets.put("<1 min", new ArrayList<>());
-        buckets.put("1-5 min", new ArrayList<>());
-        buckets.put("5-15 min", new ArrayList<>());
-        buckets.put("15+ min", new ArrayList<>());
+        Map<String, StatsAccumulator> buckets = new LinkedHashMap<>();
+        buckets.put("<1 min", new StatsAccumulator());
+        buckets.put("1-5 min", new StatsAccumulator());
+        buckets.put("5-15 min", new StatsAccumulator());
+        buckets.put("15+ min", new StatsAccumulator());
+        buckets.put("Unknown", new StatsAccumulator());
 
         for (Video video : videos) {
-            if (video.getDurationSec() == null || video.getUploadThroughputMBps() == null || video.getProcessingLatencySec() == null
-                    || video.getRealtimeFactor() == null) {
-                continue;
+            String bucket = resolveBucket(video.getDurationSec());
+            StatsAccumulator acc = buckets.get(bucket);
+            acc.samples++;
+            Double upload = getEffectiveUpload(video);
+            Double latency = getEffectiveLatency(video);
+            Double rtf = getEffectiveRtf(video, latency);
+
+            if (upload != null) {
+                acc.uploadSum += upload;
+                acc.uploadCount++;
             }
-            buckets.get(resolveBucket(video.getDurationSec())).add(video);
+            if (latency != null) {
+                acc.latencySum += latency;
+                acc.latencyCount++;
+            }
+            if (rtf != null) {
+                acc.rtfSum += rtf;
+                acc.rtfCount++;
+            }
         }
 
         List<MetricsBucketSummary> summaries = new ArrayList<>();
         int measured = 0;
-        for (Map.Entry<String, List<Video>> entry : buckets.entrySet()) {
-            List<Video> bucketVideos = entry.getValue();
-            measured += bucketVideos.size();
-            if (bucketVideos.isEmpty()) {
+        for (Map.Entry<String, StatsAccumulator> entry : buckets.entrySet()) {
+            StatsAccumulator b = entry.getValue();
+            if (b.samples == 0) {
                 summaries.add(MetricsBucketSummary.builder()
                         .bucket(entry.getKey())
                         .samples(0)
@@ -130,12 +144,14 @@ public class VideoController {
                 continue;
             }
 
+            int bucketMeasured = Math.max(b.uploadCount, Math.max(b.latencyCount, b.rtfCount));
+            measured += bucketMeasured;
             summaries.add(MetricsBucketSummary.builder()
                     .bucket(entry.getKey())
-                    .samples(bucketVideos.size())
-                    .avgUploadThroughputMBps(avg(bucketVideos, "upload"))
-                    .avgProcessingLatencySec(avg(bucketVideos, "latency"))
-                    .avgRealtimeFactor(avg(bucketVideos, "rtf"))
+                    .samples(b.samples)
+                    .avgUploadThroughputMBps(round2(b.uploadCount == 0 ? 0.0 : b.uploadSum / b.uploadCount))
+                    .avgProcessingLatencySec(round2(b.latencyCount == 0 ? 0.0 : b.latencySum / b.latencyCount))
+                    .avgRealtimeFactor(round2(b.rtfCount == 0 ? 0.0 : b.rtfSum / b.rtfCount))
                     .build());
         }
 
@@ -312,20 +328,51 @@ public class VideoController {
     }
 
     private String resolveBucket(double durationSec) {
+        if (Double.isNaN(durationSec) || Double.isInfinite(durationSec)) return "Unknown";
         if (durationSec < 60) return "<1 min";
         if (durationSec < 300) return "1-5 min";
         if (durationSec < 900) return "5-15 min";
         return "15+ min";
     }
 
-    private double avg(List<Video> videos, String type) {
-        double sum = 0.0;
-        for (Video video : videos) {
-            if ("upload".equals(type)) sum += video.getUploadThroughputMBps();
-            if ("latency".equals(type)) sum += video.getProcessingLatencySec();
-            if ("rtf".equals(type)) sum += video.getRealtimeFactor();
-        }
-        return Math.round((sum / videos.size()) * 100.0) / 100.0;
+    private String resolveBucket(Double durationSec) {
+        if (durationSec == null) return "Unknown";
+        return resolveBucket(durationSec.doubleValue());
+    }
+
+    private double round2(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    private Double getEffectiveUpload(Video v) {
+        if (v.getUploadThroughputMBps() != null) return v.getUploadThroughputMBps();
+        if (v.getFileSizeBytes() == null || v.getUploadStartedAtMs() == null || v.getUploadCompletedAtMs() == null) return null;
+        long ms = Math.max(v.getUploadCompletedAtMs() - v.getUploadStartedAtMs(), 1L);
+        double sec = ms / 1000.0;
+        return (v.getFileSizeBytes() / 1024.0 / 1024.0) / sec;
+    }
+
+    private Double getEffectiveLatency(Video v) {
+        if (v.getProcessingLatencySec() != null) return v.getProcessingLatencySec();
+        if (v.getProcessingStartedAtMs() == null || v.getProcessingCompletedAtMs() == null) return null;
+        long ms = Math.max(v.getProcessingCompletedAtMs() - v.getProcessingStartedAtMs(), 1L);
+        return ms / 1000.0;
+    }
+
+    private Double getEffectiveRtf(Video v, Double latencySec) {
+        if (v.getRealtimeFactor() != null) return v.getRealtimeFactor();
+        if (v.getDurationSec() == null || v.getDurationSec() <= 0 || latencySec == null) return null;
+        return latencySec / v.getDurationSec();
+    }
+
+    private static class StatsAccumulator {
+        int samples = 0;
+        double uploadSum = 0.0;
+        int uploadCount = 0;
+        double latencySum = 0.0;
+        int latencyCount = 0;
+        double rtfSum = 0.0;
+        int rtfCount = 0;
     }
 
 }

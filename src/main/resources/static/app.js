@@ -40,6 +40,8 @@
     const grid = document.getElementById('grid');
     const emptyState = document.getElementById('empty-state');
     const refreshBtn = document.getElementById('refresh-btn');
+    const metricsSub = document.getElementById('metrics-sub');
+    const metricsGrid = document.getElementById('metrics-grid');
 
     // Player
     const playerEl = document.getElementById('player');
@@ -340,15 +342,136 @@
             .then(videos => {
                 renderGrid(videos);
                 syncLibraryPolling(videos);
+                loadMetricsSummary(videos);
             })
             .catch(() => {
                 grid.innerHTML = '';
                 emptyState.hidden = false;
                 stopLibraryPolling();
+                metricsSub.textContent = 'Unable to load metrics';
+                metricsGrid.innerHTML = '';
             })
             .finally(() => {
                 libraryFetchInFlight = false;
             });
+    }
+
+    function loadMetricsSummary(fallbackVideos = []) {
+        fetch(API_BASE + '/metrics/summary', { headers: authHeaders() })
+            .then(res => {
+                if (res.status === 401 || res.status === 403) {
+                    clearAuthAndRedirect();
+                    throw new Error('Unauthorized');
+                }
+                if (!res.ok) throw new Error('Failed metrics');
+                return res.json();
+            })
+            .then(renderMetricsSummary)
+            .catch(() => {
+                renderMetricsSummary(buildSummaryFromVideos(fallbackVideos));
+            });
+    }
+
+    function renderMetricsSummary(summary) {
+        const total = summary?.totalVideos || 0;
+        const measured = summary?.measuredVideos || 0;
+        metricsSub.textContent = measured + ' measured of ' + total + ' videos';
+        const buckets = Array.isArray(summary?.buckets) ? summary.buckets : [];
+
+        if (buckets.length === 0) {
+            metricsGrid.innerHTML = '<div class="metric"><p class="metric__line">No metrics yet.</p></div>';
+            return;
+        }
+
+        metricsGrid.innerHTML = buckets.map(b => {
+            const t = fmtNum(b.avgUploadThroughputMBps) + ' MB/s';
+            const l = fmtNum(b.avgProcessingLatencySec) + ' s';
+            const r = fmtNum(b.avgRealtimeFactor) + 'x';
+            return `
+                <article class="metric">
+                    <p class="metric__bucket">${escHtml(b.bucket || '-')} · ${Number(b.samples || 0)} samples</p>
+                    <p class="metric__line">Upload: ${t}</p>
+                    <p class="metric__line">Latency: ${l}</p>
+                    <p class="metric__line">RTF: ${r}</p>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function buildSummaryFromVideos(videos) {
+        const src = Array.isArray(videos) ? videos : [];
+        const allBuckets = ['<1 min', '1-5 min', '5-15 min', '15+ min'];
+        const data = new Map(allBuckets.map(b => [b, []]));
+
+        src.forEach(v => {
+            const d = Number(v.durationSec);
+            const u = Number.isFinite(Number(v.uploadThroughputMBps))
+                ? Number(v.uploadThroughputMBps)
+                : deriveUpload(v);
+            const l = Number.isFinite(Number(v.processingLatencySec))
+                ? Number(v.processingLatencySec)
+                : deriveLatency(v);
+            const r = Number.isFinite(Number(v.realtimeFactor))
+                ? Number(v.realtimeFactor)
+                : (Number.isFinite(d) && d > 0 && Number.isFinite(l) ? (l / d) : NaN);
+            if (!Number.isFinite(d) || !Number.isFinite(u) || !Number.isFinite(l) || !Number.isFinite(r)) return;
+            const bucket = d < 60 ? '<1 min' : d < 300 ? '1-5 min' : d < 900 ? '5-15 min' : '15+ min';
+            data.get(bucket).push({ u, l, r });
+        });
+
+        const buckets = allBuckets.map(bucket => {
+            const arr = data.get(bucket);
+            if (!arr.length) {
+                return {
+                    bucket,
+                    samples: 0,
+                    avgUploadThroughputMBps: 0,
+                    avgProcessingLatencySec: 0,
+                    avgRealtimeFactor: 0
+                };
+            }
+            const sum = arr.reduce((acc, it) => ({
+                u: acc.u + it.u,
+                l: acc.l + it.l,
+                r: acc.r + it.r
+            }), { u: 0, l: 0, r: 0 });
+            return {
+                bucket,
+                samples: arr.length,
+                avgUploadThroughputMBps: sum.u / arr.length,
+                avgProcessingLatencySec: sum.l / arr.length,
+                avgRealtimeFactor: sum.r / arr.length
+            };
+        });
+
+        const measuredVideos = buckets.reduce((acc, b) => acc + b.samples, 0);
+        return {
+            totalVideos: src.length,
+            measuredVideos,
+            buckets
+        };
+    }
+
+    function deriveUpload(v) {
+        const size = Number(v.fileSizeBytes);
+        const start = Number(v.uploadStartedAtMs);
+        const end = Number(v.uploadCompletedAtMs);
+        if (!Number.isFinite(size) || !Number.isFinite(start) || !Number.isFinite(end)) return NaN;
+        const sec = Math.max((end - start) / 1000, 0.001);
+        return (size / 1024 / 1024) / sec;
+    }
+
+    function deriveLatency(v) {
+        const start = Number(v.processingStartedAtMs);
+        const end = Number(v.processingCompletedAtMs);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return NaN;
+        return Math.max((end - start) / 1000, 0.001);
+    }
+
+    function fmtNum(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return '0.00';
+        return n.toFixed(2);
     }
 
     function startLibraryPolling() {
@@ -461,13 +584,17 @@
         const videoId = pendingDeleteId;
         hideDeleteModal();
 
-        fetch(API_BASE + '/' + videoId, { method: 'DELETE' })
+        fetch(API_BASE + '/' + videoId, { method: 'DELETE', headers: authHeaders() })
             .then(res => {
-                if (res.status === 401 || res.status === 403) {
+                if (res.status === 401) {
                     clearAuthAndRedirect();
                     throw new Error('Unauthorized');
                 }
-                if (!res.ok) throw new Error('Delete failed');
+                if (!res.ok) {
+                    return res.json()
+                        .then(body => { throw new Error(body.message || 'Delete failed'); })
+                        .catch(() => { throw new Error('Delete failed'); });
+                }
                 return res.json();
             })
             .then(data => {
@@ -475,7 +602,7 @@
                 if (currentVideoId === videoId) closePlayer();
                 loadLibrary();
             })
-            .catch(() => toast('Failed to delete video', 'error'));
+            .catch((err) => toast(err.message || 'Failed to delete video', 'error'));
     });
 
     /* ========================================
