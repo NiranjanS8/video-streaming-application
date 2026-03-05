@@ -17,6 +17,10 @@ Video upload and streaming platform with authentication, user-based ownership, a
   - realtime factor (RTF)
 - Metrics summary API + dashboard card in UI
 
+## Architecture Diagram
+
+![Architecture Diagram](Architecture.png)
+
 ## Tech Stack
 
 - Java 21
@@ -193,7 +197,5 @@ UI:
 4. UI shows `Processing...` until `master.m3u8` exists.
 5. Metrics are updated and exposed in summary API.
 
-## Architecture Diagram
 
-![Architecture Diagram](Architechture.png)
 
