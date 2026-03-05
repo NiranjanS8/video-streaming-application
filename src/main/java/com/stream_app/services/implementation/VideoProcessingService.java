@@ -31,6 +31,9 @@ public class VideoProcessingService {
             Video video = videoRepo.findById(videoId)
                     .orElseThrow(() -> new RuntimeException("Video not found: " + videoId));
             Path videoPath = Paths.get(video.getFilePath());
+            long processingStart = System.currentTimeMillis();
+            video.setProcessingStartedAtMs(processingStart);
+            videoRepo.save(video);
 
             log.info("Starting HLS processing for video: {} ({})", videoId, videoPath);
 
@@ -81,6 +84,18 @@ public class VideoProcessingService {
             Process process = pb.start();
 
             int exitCode = process.waitFor();
+            long processingEnd = System.currentTimeMillis();
+            video = videoRepo.findById(videoId).orElse(null);
+            if (video != null) {
+                video.setProcessingCompletedAtMs(processingEnd);
+                double processingSec = Math.max((processingEnd - processingStart) / 1000.0, 0.001);
+                video.setProcessingLatencySec(processingSec);
+                if (video.getDurationSec() != null && video.getDurationSec() > 0) {
+                    video.setRealtimeFactor(processingSec / video.getDurationSec());
+                }
+                video.setProcessingSucceeded(exitCode == 0);
+                videoRepo.save(video);
+            }
             if (exitCode == 0) {
                 log.info("HLS processing completed successfully for video: {}", videoId);
             } else {
@@ -94,6 +109,11 @@ public class VideoProcessingService {
             }
 
         } catch (Exception e) {
+            Video video = videoRepo.findById(videoId).orElse(null);
+            if (video != null) {
+                video.setProcessingSucceeded(false);
+                videoRepo.save(video);
+            }
             log.error("Error during HLS processing for video: {}", videoId, e);
         }
     }

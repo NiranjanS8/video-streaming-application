@@ -1,6 +1,8 @@
 package com.stream_app.controllers;
 
 import com.stream_app.AppConstants;
+import com.stream_app.dto.metrics.MetricsBucketSummary;
+import com.stream_app.dto.metrics.MetricsSummaryResponse;
 import com.stream_app.entities.Video;
 import com.stream_app.playload.CustomMessage;
 import com.stream_app.security.AuthenticatedUser;
@@ -26,6 +28,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -89,6 +94,56 @@ public class VideoController {
     @GetMapping("/my")
     public List<Video> getMyVideos(@AuthenticationPrincipal AuthenticatedUser user) {
         return annotateProcessing(videoService.getAllByUserId(user.getId()));
+    }
+
+    @GetMapping("/metrics/summary")
+    public MetricsSummaryResponse getMetricsSummary(@AuthenticationPrincipal AuthenticatedUser user) {
+        List<Video> videos = videoService.getAllByUserId(user.getId());
+
+        Map<String, List<Video>> buckets = new LinkedHashMap<>();
+        buckets.put("<1 min", new ArrayList<>());
+        buckets.put("1-5 min", new ArrayList<>());
+        buckets.put("5-15 min", new ArrayList<>());
+        buckets.put("15+ min", new ArrayList<>());
+
+        for (Video video : videos) {
+            if (video.getDurationSec() == null || video.getUploadThroughputMBps() == null || video.getProcessingLatencySec() == null
+                    || video.getRealtimeFactor() == null) {
+                continue;
+            }
+            buckets.get(resolveBucket(video.getDurationSec())).add(video);
+        }
+
+        List<MetricsBucketSummary> summaries = new ArrayList<>();
+        int measured = 0;
+        for (Map.Entry<String, List<Video>> entry : buckets.entrySet()) {
+            List<Video> bucketVideos = entry.getValue();
+            measured += bucketVideos.size();
+            if (bucketVideos.isEmpty()) {
+                summaries.add(MetricsBucketSummary.builder()
+                        .bucket(entry.getKey())
+                        .samples(0)
+                        .avgUploadThroughputMBps(0.0)
+                        .avgProcessingLatencySec(0.0)
+                        .avgRealtimeFactor(0.0)
+                        .build());
+                continue;
+            }
+
+            summaries.add(MetricsBucketSummary.builder()
+                    .bucket(entry.getKey())
+                    .samples(bucketVideos.size())
+                    .avgUploadThroughputMBps(avg(bucketVideos, "upload"))
+                    .avgProcessingLatencySec(avg(bucketVideos, "latency"))
+                    .avgRealtimeFactor(avg(bucketVideos, "rtf"))
+                    .build());
+        }
+
+        return MetricsSummaryResponse.builder()
+                .totalVideos(videos.size())
+                .measuredVideos(measured)
+                .buckets(summaries)
+                .build();
     }
 
     // Streaming endpoint
@@ -254,6 +309,23 @@ public class VideoController {
             video.setProcessing(!Files.exists(masterPlaylist));
         });
         return videos;
+    }
+
+    private String resolveBucket(double durationSec) {
+        if (durationSec < 60) return "<1 min";
+        if (durationSec < 300) return "1-5 min";
+        if (durationSec < 900) return "5-15 min";
+        return "15+ min";
+    }
+
+    private double avg(List<Video> videos, String type) {
+        double sum = 0.0;
+        for (Video video : videos) {
+            if ("upload".equals(type)) sum += video.getUploadThroughputMBps();
+            if ("latency".equals(type)) sum += video.getProcessingLatencySec();
+            if ("rtf".equals(type)) sum += video.getRealtimeFactor();
+        }
+        return Math.round((sum / videos.size()) * 100.0) / 100.0;
     }
 
 }

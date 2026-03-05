@@ -13,8 +13,10 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -72,14 +74,23 @@ public class VideoServiceImpl implements VideoService {
         Files.createDirectories(uploadPath); // extra safety
 
         Path filePath = uploadPath.resolve(fileName);
+        long uploadStartMs = System.currentTimeMillis();
 
         try (InputStream inputStream = file.getInputStream()) {
             Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
         }
+        long uploadEndMs = System.currentTimeMillis();
 
         video.setContentType(file.getContentType());
         video.setFilePath(filePath.toString());
         video.setUser(owner);
+        video.setFileSizeBytes(file.getSize());
+        video.setUploadStartedAtMs(uploadStartMs);
+        video.setUploadCompletedAtMs(uploadEndMs);
+        double uploadSec = Math.max((uploadEndMs - uploadStartMs) / 1000.0, 0.001);
+        video.setUploadThroughputMBps((file.getSize() / 1024.0 / 1024.0) / uploadSec);
+        video.setDurationSec(extractDurationSec(filePath));
+        video.setProcessingSucceeded(false);
 
         // Save custom thumbnail if provided
         if (thumbnail != null && !thumbnail.isEmpty()) {
@@ -110,6 +121,29 @@ public class VideoServiceImpl implements VideoService {
     @Override
     public List<Video> getAll() {
         return videoRepo.findAll();
+    }
+
+    private Double extractDurationSec(Path filePath) {
+        ProcessBuilder pb = new ProcessBuilder(
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                filePath.toString());
+        try {
+            Process process = pb.start();
+            String output;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                output = reader.readLine();
+            }
+            int exitCode = process.waitFor();
+            if (exitCode != 0 || output == null || output.isBlank()) {
+                return null;
+            }
+            return Double.parseDouble(output.trim());
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     @Override

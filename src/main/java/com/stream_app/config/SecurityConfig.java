@@ -51,7 +51,8 @@ public class SecurityConfig {
                                 "/videos/thumbnail/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/videos", "/videos").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/videos/my", "/videos/my", "/api/v1/videos/allVideos")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/videos/my", "/videos/my", "/api/v1/videos/allVideos",
+                                "/api/v1/videos/metrics/**", "/videos/metrics/**")
                         .authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/videos/**", "/videos/**").authenticated()
                         .anyRequest().permitAll())

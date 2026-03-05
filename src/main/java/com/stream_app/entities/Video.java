@@ -27,6 +27,16 @@ public class Video {
     private String contentType;
     private String filePath;
     private String thumbnailPath;
+    private Long fileSizeBytes;
+    private Double durationSec;
+    private Long uploadStartedAtMs;
+    private Long uploadCompletedAtMs;
+    private Double uploadThroughputMBps;
+    private Long processingStartedAtMs;
+    private Long processingCompletedAtMs;
+    private Double processingLatencySec;
+    private Double realtimeFactor;
+    private Boolean processingSucceeded;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = true)
