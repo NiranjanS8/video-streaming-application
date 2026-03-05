@@ -164,6 +164,5 @@ UI:
 
 ## Architecture Diagram
 
-![Architecture Diagram](Architechture.png
-)
+![Architecture Diagram](Architechture.png)
 
